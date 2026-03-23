@@ -1,0 +1,37 @@
+#!/bin/bash
+set -euo pipefail
+
+WD="$(cd "$(dirname "$0")" && pwd)"
+
+PDBDIR="${1:?Usage: $0 <input_pdb_dir> [output_dir] [cutoff]}"
+PDBDIR="${PDBDIR%/}"
+OUTDIR="${2:-rnpclust_out}"
+OUTDIR="${OUTDIR%/}"
+CUTOFF="${3:-0.5}"
+
+echo "PDB dir:    $PDBDIR" >&2
+echo "Output dir: $OUTDIR" >&2
+echo "Cutoff:     $CUTOFF" >&2
+
+if [ -d "$OUTDIR" ]; then
+  backup="${OUTDIR}.bak"
+  if [ -d "$backup" ]; then
+    rm -rf "$backup"
+  fi
+  echo "$OUTDIR already exists, backup as $backup" >&2
+  mv "$OUTDIR" "$backup"
+fi
+mkdir -p "$OUTDIR"
+
+allvsall="$OUTDIR/all_vs_all.tsv"
+echo "=== Running all-vs-all alignments ===" >&2
+bash "$WD/usalign_all_vs_all.bash" "$PDBDIR" "$allvsall"
+
+echo "=== Clustering (cutoff=$CUTOFF) ===" >&2
+python "$WD/setcover_cluster.py" "$allvsall" \
+                                --col 2 \
+                                --cutoff "$CUTOFF" \
+                                --centroid \
+                                --fmt wide \
+                                -o "$OUTDIR/clusters.dat" \
+                                -sc "$OUTDIR/aligned_clusters"
