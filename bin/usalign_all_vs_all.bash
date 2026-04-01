@@ -19,10 +19,18 @@ echo "Found $N structures → $(( N*(N-1)/2 )) pairs" >&2
 header="#PDBchain1\tPDBchain2\tTM\tTM1\tTM2\tRMSD\tID1\tID2\tIDali\tL1\tL2\tLali"
 
 run_alignments() {
+  local total=$(( N*(N-1)/2 ))
+  local counter=0
   awk '{a[NR]=$1} END{for(i=1;i<NR;i++) for(j=i+1;j<=NR;j++) print a[i],a[j]}' \
       "$TMPLIST" \
     | parallel --will-cite --colsep ' ' -j "$(nproc)" \
-      "USalign '${DIR}'/{1}${SUFFIX} '${DIR}'/{2}${SUFFIX} -mm 1 -ter 1 -outfmt 2 2>/dev/null | grep -v '^#'"
+      "USalign '${DIR}'/{1}${SUFFIX} '${DIR}'/{2}${SUFFIX} -mm 1 -ter 1 -outfmt 2 2>/dev/null | grep -v '^#'" \
+    | while IFS= read -r line; do
+        counter=$((counter + 1))
+        printf '\r%d / %d completed' "$counter" "$total" >&2
+        printf '%s\n' "$line"
+      done
+  printf '\n' >&2
 }
 
 # Add TM=max(TM1,TM2) column after PDBchain2
