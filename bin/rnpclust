@@ -13,19 +13,18 @@ echo "PDB dir:    $PDBDIR" >&2
 echo "Output dir: $OUTDIR" >&2
 echo "Cutoff:     $CUTOFF" >&2
 
-if [ -d "$OUTDIR" ]; then
-  backup="${OUTDIR}.bak"
-  if [ -d "$backup" ]; then
-    rm -rf "$backup"
-  fi
-  echo "$OUTDIR already exists, backup as $backup" >&2
-  mv "$OUTDIR" "$backup"
-fi
 mkdir -p "$OUTDIR"
 
 allvsall="$OUTDIR/all_vs_all.tsv"
-echo "=== Running all-vs-all alignments ===" >&2
-bash "$WD/usalign_all_vs_all.bash" "$PDBDIR" "$allvsall"
+nstructs=$(find "$PDBDIR" -maxdepth 1 -name '*.pdb' | wc -l)
+expected_lines=$(( nstructs * (nstructs - 1) / 2 + 1 ))  # pairs + header
+
+if [[ -f "$allvsall" ]] && (( $(wc -l < "$allvsall") == expected_lines )); then
+  echo "=== Reusing existing $allvsall ($expected_lines lines) ===" >&2
+else
+  echo "=== Running all-vs-all alignments ===" >&2
+  bash "$WD/usalign_all_vs_all.bash" "$PDBDIR" "$allvsall"
+fi
 
 echo "=== Clustering (cutoff=$CUTOFF) ===" >&2
 python "$WD/setcover_cluster.py" "$allvsall" \

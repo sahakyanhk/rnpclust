@@ -18,6 +18,11 @@ OUTDIR="${2:?Provide output directory}"
 MIN_MEMBERS="${3:-2}"
 
 
+
+if [ -d "$OUTDIR" ]; then
+  rm -rf "$OUTDIR"
+fi
+
 mkdir -p "$OUTDIR"
 
 # Parse entry like  path/to/file.pdb:A:B  into pdb path + chain flag
