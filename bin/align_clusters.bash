@@ -1,23 +1,22 @@
 #!/bin/bash
 set -euo pipefail
 
-# Align PDB structures within each cluster produced by setcover_cluster.py
+# Align PDB structures within each cluster.
 #
-# Input format (wide, from setcover_cluster.py --fmt wide):
+# Input format (wide):
 #   Each line = one cluster, members space-separated
-#   Each member = path/to/file.pdb:chainA:chainB
+#   Each member = bare basename (e.g. run004_final)
 #
 # Usage:
-#   align_clusters.bash <clusters.tsv> <output_dir> [min_members]
+#   align_clusters.bash <clusters.dat> <output_dir> <pdb_dir> [min_members]
 #
-# PDB paths in clusters.tsv are used directly (relative or absolute).
 # USalign superimposes each member onto the cluster representative (first entry).
 
-CLUSTERS="${1:?Usage: $0 <clusters.tsv> <output_dir> [min_members]}"
+CLUSTERS="${1:?Usage: $0 <clusters.dat> <output_dir> <pdb_dir> [min_members]}"
 OUTDIR="${2:?Provide output directory}"
-MIN_MEMBERS="${3:-2}"
-
-
+PDBDIR="${3:?Provide PDB directory}"
+PDBDIR="${PDBDIR%/}"
+MIN_MEMBERS="${4:-2}"
 
 if [ -d "$OUTDIR" ]; then
   rm -rf "$OUTDIR"
@@ -25,32 +24,14 @@ fi
 
 mkdir -p "$OUTDIR"
 
-# Parse entry like  path/to/file.pdb:A:B  into pdb path + chain flag
-#   Sets: _pdb_path, _chain_flag, _tag
-parse_entry() {
-  local entry="$1"
-  if [[ "$entry" == *.pdb:* ]]; then
-    _pdb_path="${entry%.pdb:*}.pdb"
-    local raw_chains="${entry#"$_pdb_path":}"
-    # Convert colon-separated chains to comma-separated for USalign
-    # Empty chain IDs (::) become _ for USalign
-    local usalign_chains=""
-    IFS=':' read -r -a chain_arr <<< "$raw_chains"
-    for c in "${chain_arr[@]}"; do
-      [[ -n "$usalign_chains" ]] && usalign_chains+=","
-      if [[ -z "$c" ]]; then
-        usalign_chains+="_"
-      else
-        usalign_chains+="$c"
-      fi
-    done
-    _chain_flag="$usalign_chains"
-    # Tag for unique output filenames: replace colons and strip trailing
-    _tag="${raw_chains//[:]/}"
+# Resolve bare basename to PDB file path
+resolve_pdb() {
+  local name="$1"
+  local pdb="$PDBDIR/${name}.pdb"
+  if [[ -f "$pdb" ]]; then
+    echo "$pdb"
   else
-    _pdb_path="$entry"
-    _chain_flag=""
-    _tag=""
+    echo ""
   fi
 }
 
@@ -65,50 +46,31 @@ while IFS= read -r line; do
   cdir="$OUTDIR/clust$(printf '%04d' $clust_idx)"
   mkdir -p "$cdir"
 
-  parse_entry "${members[0]}"
-  ref_pdb="$_pdb_path"
-  ref_chain_flag="$_chain_flag"
-  ref_tag="$_tag"
-
-  if [[ ! -f "$ref_pdb" ]]; then
-    echo "WARNING: reference PDB not found: $ref_pdb — skipping cluster $clust_idx" >&2
+  ref_pdb="$(resolve_pdb "${members[0]}")"
+  if [[ -z "$ref_pdb" ]]; then
+    echo "WARNING: reference PDB not found: ${members[0]} — skipping cluster $clust_idx" >&2
     continue
   fi
 
-  ref_base="$(basename "$ref_pdb" .pdb)"
-  cp "$ref_pdb" "$cdir/${ref_base}_${ref_tag}_ref.pdb"
-
-  # Build -chain1 flag for reference
-  chain1_args=()
-  [[ -n "$ref_chain_flag" ]] && chain1_args=(-chain1 "$ref_chain_flag")
+  cp "$ref_pdb" "$cdir/${members[0]}_ref.pdb"
 
   for ((i=1; i<${#members[@]}; i++)); do
-    parse_entry "${members[$i]}"
-    target_pdb="$_pdb_path"
-    target_chain_flag="$_chain_flag"
-    target_tag="$_tag"
-
-    if [[ ! -f "$target_pdb" ]]; then
-      echo "WARNING: target PDB not found: $target_pdb — skipping" >&2
+    target_pdb="$(resolve_pdb "${members[$i]}")"
+    if [[ -z "$target_pdb" ]]; then
+      echo "WARNING: target PDB not found: ${members[$i]} — skipping" >&2
       continue
     fi
 
-    target_base="$(basename "$target_pdb" .pdb)"
-    out_prefix="$cdir/${target_base}_${target_tag}_sup"
+    out_prefix="$cdir/${members[$i]}_sup"
 
-    # Build -chain2 flag for target
-    chain2_args=()
-    [[ -n "$target_chain_flag" ]] && chain2_args=(-chain2 "$target_chain_flag")
-
-    USalign "$target_pdb" "$ref_pdb"  -mm 1 -ter 1 \
-            "${chain1_args[@]}" "${chain2_args[@]}" \
+    USalign "$target_pdb" "$ref_pdb" -mm 1 -ter 1 \
             -o "$out_prefix" >/dev/null || \
       echo "WARNING: USalign failed for ${members[$i]}" >&2
   done
 
   rm -f "$cdir"/*.pml
 
-  echo "clust$(printf '%04d' $clust_idx): ${#members[@]} members, rep=${ref_base}:${ref_tag}" >&2
+  echo "clust$(printf '%04d' $clust_idx): ${#members[@]} members, rep=${members[0]}" >&2
 done < "$CLUSTERS"
 
 echo "Done: $clust_idx clusters written to $OUTDIR" >&2
