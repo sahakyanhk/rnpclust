@@ -16,7 +16,7 @@ done > "$TMPLIST"
 N=$(wc -l < "$TMPLIST")
 echo "Found $N structures → $(( N*(N-1)/2 )) pairs" >&2
 
-header="#PDBchain1\tPDBchain2\tTM\tTM1\tTM2\tRMSD\tID1\tID2\tIDali\tL1\tL2\tLali"
+header="#PDB1\tPDB2\tTM\tTM1\tTM2\tRMSD\tID1\tID2\tIDali\tL1\tL2\tLali"
 
 run_alignments() {
   local total=$(( N*(N-1)/2 ))
@@ -33,10 +33,34 @@ run_alignments() {
   printf '\n' >&2
 }
 
-# Add TM=max(TM1,TM2) column after PDBchain2
+# Strip chain suffixes from PDB names and add TM=max(TM1,TM2) column.
+# USalign -outfmt 2 produces entries like path/file.pdb:A:B — we keep only path/file.pdb.
+# When multiple chain combinations exist for the same PDB pair, keep only the best TM.
 add_tm_col() {
   echo -e "$header"
-  awk -F'\t' 'BEGIN{OFS="\t"} {tm=($3>$4)?$3:$4; print $1,$2,tm,$3,$4,$5,$6,$7,$8,$9,$10,$11}'
+  awk -F'\t' 'BEGIN{OFS="\t"}
+  {
+    # Strip path, extension, and chain suffixes → bare basename
+    pdb1=$1; pdb2=$2
+    sub(/.*\//, "", pdb1); sub(/\.pdb.*/, "", pdb1)
+    sub(/.*\//, "", pdb2); sub(/\.pdb.*/, "", pdb2)
+
+    # Compute TM = max(TM1, TM2)
+    tm=($3>$4)?$3:$4
+
+    # Build canonical pair key (sorted)
+    if (pdb1 < pdb2) key = pdb1 SUBSEP pdb2
+    else             key = pdb2 SUBSEP pdb1
+
+    # Keep only the best TM per pair
+    if (!(key in best) || tm > best[key]) {
+      best[key] = tm
+      line[key] = pdb1 OFS pdb2 OFS tm OFS $3 OFS $4 OFS $5 OFS $6 OFS $7 OFS $8 OFS $9 OFS $10 OFS $11
+    }
+  }
+  END {
+    for (k in line) print line[k]
+  }'
 }
 
 if [[ -n "${2:-}" ]]; then

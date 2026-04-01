@@ -111,7 +111,11 @@ def parse_args():
     )
     p.add_argument(
         "-sc", "--sort-clusters", default=None,
-        help="Files are not sorted by clusters"
+        help="Directory for aligned cluster PDBs"
+    )
+    p.add_argument(
+        "--pdb-dir", default=None,
+        help="PDB directory (required with --sort-clusters to resolve basenames)"
     )
     args = p.parse_args()
 
@@ -125,6 +129,8 @@ def parse_args():
         args.centroid_col = args.col
     if args.sort_clusters and args.fmt == "tsv":
         p.error("--sort-clusters requires wide format (incompatible with --fmt tsv)")
+    if args.sort_clusters and not args.pdb_dir:
+        p.error("--sort-clusters requires --pdb-dir")
 
     return args
 
@@ -470,7 +476,7 @@ def main():
             sys.exit(1)
         align_script = os.path.join(SCRIPT_DIR, "align_clusters.bash")
         ret = subprocess.run(
-            ["bash", align_script, args.output, args.sort_clusters],
+            ["bash", align_script, args.output, args.sort_clusters, args.pdb_dir],
         )
         if ret.returncode != 0:
             print(f"ERROR: align_clusters.bash exited with code {ret.returncode}", file=sys.stderr)
