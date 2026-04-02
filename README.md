@@ -1,6 +1,7 @@
-# rnpclust
+# RNPclust
 
-Structural clustering of ribonucleoproteins using USalign.
+Structural clustering of ribonucleoproteins and RNA-protein interfaces using USalign.
+
 
 ## Dependencies 
 
