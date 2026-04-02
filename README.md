@@ -2,7 +2,7 @@
 
 Structural clustering of ribonucleoproteins using USalign.
 
-## Prerequisites
+## Dependencies 
 
 - [USalign](https://github.com/pylelab/USalign)
 - [GNU parallel](https://www.gnu.org/software/parallel/)
@@ -16,7 +16,7 @@ unzip main.zip && mv rnpclust-main rnpclust
 chmod +x rnpclust/bin/*
 
 # Add to PATH (or add to ~/.bashrc, replace $(pwd) with actual path ):
-export PATH="rnpclust/$(pwd)/bin:$PATH"
+export PATH="$(pwd)/rnpclust/bin:$PATH"
 
 # Install Python dependencies and USalign
 pip install numpy scipy biopython
@@ -45,14 +45,14 @@ rnpclust -i <pdb_dir> [-o <output_dir>] [-c <cutoff>] [-m <method>]
 rnpclust -i examples/pdb_interface/ -o examples/clustering_results -c 0.4  -m 0
 
 # extract interfaces intercating with chain A within 15A, then cluster with cutoff 0.4
-python bin/extract_interface.py -i examples/pdb -c A --cut 15 -o examples/pdb_interface
+python bin/extract_interface.py -i examples/pdb -c A --cut 15 -o examples/pdb_interface 
 rnpclust -i examples/pdb_interface/ -o examples/clustering_results -c 0.4  -m 0
 
 ```
 
 ### Clustering methods
 
-**Hierarchical (`-m 0`, default)** — Average linkage clustering on a TM-score distance matrix (1 - TM)
+**Hierarchical (`-m 0`, default)** — Average linkage clustering on a TM-score distance matrix (1 - TM)\
 **Set-cover (`-m 1`)** — Greedy clustering. (Faster, but less accurate)
 
 ### Output
