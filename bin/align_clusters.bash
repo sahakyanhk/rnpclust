@@ -16,7 +16,7 @@ CLUSTERS="${1:?Usage: $0 <clusters.dat> <output_dir> <pdb_dir> [min_members]}"
 OUTDIR="${2:?Provide output directory}"
 PDBDIR="${3:?Provide PDB directory}"
 PDBDIR="${PDBDIR%/}"
-MIN_MEMBERS="${4:-2}"
+MIN_MEMBERS="${4:-3}"
 
 if [ -d "$OUTDIR" ]; then
   rm -rf "$OUTDIR"
