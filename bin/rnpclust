@@ -8,10 +8,11 @@ PDBDIR=""
 OUTDIR="rnpclust_out"
 CUTOFF="auto"
 METHOD=0   # 0 = hierarchical (default), 1 = set_cover
+THREADS=""
 
 usage() {
   cat >&2 <<EOF
-Usage: $(basename "$0") -i <pdb_dir> [-o <output_dir>] [-c <cutoff>] [-m <method>]
+Usage: $(basename "$0") -i <pdb_dir> [-o <output_dir>] [-c <cutoff>] [-m <method>] [-t <threads>]
 
 Options:
   -i  Input directory with .pdb files (required)
@@ -22,17 +23,19 @@ Options:
   -m  Clustering method (default: 0)
         0 = hierarchical clustering (auto k or cutoff-based)
         1 = greedy set-cover clustering (requires -c cutoff)
+  -t  Number of threads for parallel USalign (default: all cores)
   -h  Show this help
 EOF
   exit 1
 }
 
-while getopts "i:o:c:m:h" opt; do
+while getopts "i:o:c:m:t:h" opt; do
   case "$opt" in
     i) PDBDIR="${OPTARG%/}" ;;
     o) OUTDIR="${OPTARG%/}" ;;
     c) CUTOFF="$OPTARG" ;;
     m) METHOD="$OPTARG" ;;
+    t) THREADS="$OPTARG" ;;
     h) usage ;;
     *) usage ;;
   esac
@@ -62,8 +65,25 @@ if [[ -f "$allvsall" ]] && (( $(wc -l < "$allvsall") == expected_lines )); then
   echo "=== Reusing existing $allvsall ($expected_lines lines) ===" >&2
 else
   echo "=== Running all-vs-all alignments ===" >&2
-  bash "$WD/usalign_all_vs_all.bash" "$PDBDIR" "$allvsall"
+  bash "$WD/usalign_all_vs_all.bash" "$PDBDIR" "$allvsall" "$THREADS"
 fi
+
+
+python - <<EOF
+
+import pandas as pd
+from matplotlib import pyplot as plt
+
+df = pd.read_csv("$allvsall", sep='\t')
+plt.style.use('bmh')
+plt.hist(df.TM, bins=50, alpha=0.8, label='cutoff=${CUTOFF}')
+plt.xlabel('TM Score')
+plt.ylabel('Frequency')
+plt.title('Distribution of TM Scores')
+plt.savefig('${OUTDIR}/all_vs_all_i${CUTOFF}.png')
+
+EOF
+
 
 # ── Clustering ──
 if [[ "$METHOD" == "0" ]]; then

@@ -143,8 +143,7 @@ def load_distance_matrix(args):
 
     elapsed = time.time() - t0
     print(
-        f"Loaded {n_lines:,} lines in {elapsed:.1f}s, "
-        f"{n:,} structures, {n_lines:,} pairs",
+        f"Loaded {n_lines:,} lines in {elapsed:.1f}s, "f"{n:,} structures, {n_lines:,} pairs",
         file=sys.stderr,
     )
     return dist, names
